@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Merkle Disclosure Proof 2021</title>
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+    <!--
+      === NOTA BENE ===
+      For the three scripts below, if your spec resides on dev.w3 you can check them
+      out in the same tree and use relative links so that they'll work offline,
+     -->
+
+    <script
+      class="remove"
+      src="https://www.w3.org/Tools/respec/respec-w3c"
+    ></script>
+    <script
+      class="remove"
+      src="https://unpkg.com/reqlist/lib/reqlist.js"
+    ></script>
+
+    <script type="text/javascript" class="remove">
+      var respecConfig = {
+        specStatus: "unofficial",
+        shortName: 'merkle-disclosure-proof-2021',
+        edDraftURI: "https://w3c-ccg.github.io/ldp-bbs2020/",
+        xref: {
+          specs: ['DID-CORE', 'VC-DATA-MODEL', 'RFC7515', 'RFC6901'],
+          profile: 'web-platform',
+        },
+
+        // subtitle for the spec
+        subtitle:
+          'Merkle proof based selective disclosure with json web signatures.',
+
+        // extend the bibliography entries
+        localBiblio: {
+          "RDF-DATASET-NORMALIZATION": {
+            title:    "RDF Dataset Normalization 1.0",
+            href:     "http://json-ld.github.io/normalization/spec/",
+            authors:  ["David Longley", "Manu Sporny"],
+            status:   "CGDRAFT",
+            publisher:  "JSON-LD Community Group"
+          },
+          "JSON-LD-FRAMING": {
+            title:    "JSON-LD 1.1 Framing",
+            href:     "https://www.w3.org/TR/json-ld11-framing",
+            authors:  ["Dave Longley", "Gregg Kellogg", "Pierre-Antoine Champin"],
+            status:   "Candidate Recommendation",
+            publisher:  "W3C"
+          },
+          'LD-PROOFS': {
+            title: 'Linked Data Proofs 1.0',
+            href: 'https://w3c-ccg.github.io/ld-proofs',
+            authors: ['David Longley', 'Manu Sporny'],
+            status: 'CGDRAFT',
+            publisher: 'Web Payments Community Group',
+          },
+          "LDP-BBS2020": {
+            title:    "BBS+ Signatures 2020",
+            href:     "https://w3id.org/security/suites/bls12381-2020",
+            authors:  ["Tobias Looker", "Orie Steele"],
+            status:   "Draft"
+          },
+        },
+        doJsonLd: true,
+
+        github: {
+          repoURL: 'https://github.com/OR13/merkle-disclosure-proof-2021/',
+          branch: 'main',
+        },
+        includePermalinks: false,
+
+        group: "credentials",
+
+        editors: [
+          {
+            name: 'Orie Steele',
+            url: 'https://www.linkedin.com/in/or13b/',
+            company: 'Transmute',
+            companyURL: 'https://www.transmute.industries/',
+            w3cid: 109171,
+          },
+          {
+            name: 'Michael Prorock',
+            url: 'https://www.linkedin.com/in/mprorock/',
+            company: 'mesur.io',
+            companyURL: 'https://mesur.io/',
+            w3cid: 130636,
+          },
+        ],
+        maxTocLevel: 5,
+        inlineCSS: true,
+        noRecTrack: true,
+      };
+    </script>
+    <style>
+      pre .highlight {
+        font-weight: bold;
+        color: green;
+      }
+
+      pre .comment {
+        font-weight: bold;
+        color: Gray;
+      }
+
+      .color-text {
+        font-weight: bold;
+        text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black;
+      }
+
+      .simple {
+        width: 100%;
+      }
+    </style>
+  </head>
+
+  <body>
+    <section id="abstract">
+      <p>
+        This document defines a mechanism for
+
+        <a data-cite="VC-DATA-MODEL#proofs-signatures">proof</a> formats that
+        supports selective disclosure without the need for a
+        <a data-cite="VC-DATA-MODEL#dfn-holders">Holder</a> to obtain a new
+        <a data-cite="VC-DATA-MODEL#credentials">Verifiable Credential</a> from
+        an <a data-cite="VC-DATA-MODEL#dfn-issuers">Issuer</a>.
+      </p>
+    </section>
+
+    <section id="sotd">
+      <p>
+        Implementers are advised to consult this guide if they are directly
+        involved with the W3C VC Working Group.
+      </p>
+    </section>
+
+    <section id="terminology" class="informative">
+      <h2>Terminology</h2>
+
+      <p class="note">
+        We use the term <code>proof</code> in place of
+        <code>signature</code> throughout this document. This is important
+        because not all cryptographic prooving techniqueas relying exclusively
+        on a single digital signature.
+      </p>
+      <p>
+        See [[DID-CORE]] for definitions of commonly-used
+        <a data-cite="DID-CORE#terminology">DID terminology</a>.
+      </p>
+
+      <p>
+        See [[VC-DATA-MODEL]] for definitions of commonly-used
+        <a data-cite="VC-DATA-MODEL#terminology">DID terminology</a>.
+      </p>
+
+      <section id="index"></section>
+    </section>
+
+    <section class="informative">
+      <h2>Motivation</h2>
+
+      <p>
+        Single message signature schemes make generic selective disclosure
+        proofs difficult or impossibl to implement on top of standard
+        cryptographic tooling.
+      </p>
+
+      <section>
+        <h3>Single Message Proofs</h3>
+
+        <p>
+          Traditional signature and proof formats have focused on single message
+          signature and verification schemes.
+        </p>
+
+        <p>
+          For example
+          <a
+            href="https://jwt.io/#debugger-io?token=eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDprZXk6ejZNa29rcnNWbzhEYkdEc25NQWpub0hoSm90TWJEWmlIZnZ4TTRqNjVkOHByWFVyI3o2TWtva3JzVm84RGJHRHNuTUFqbm9IaEpvdE1iRFppSGZ2eE00ajY1ZDhwclhVciJ9.eyJpc3MiOiJkaWQ6a2V5Ono2TWtva3JzVm84RGJHRHNuTUFqbm9IaEpvdE1iRFppSGZ2eE00ajY1ZDhwclhVciIsInN1YiI6ImRpZDpleGFtcGxlOmViZmViMWY3MTJlYmM2ZjFjMjc2ZTEyZWMyMSIsInZjIjp7IkBjb250ZXh0IjpbImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL3YxIiwiaHR0cHM6Ly93M2lkLm9yZy9zZWN1cml0eS9zdWl0ZXMvandzLTIwMjAvdjEiXSwiaWQiOiJodHRwOi8vZXhhbXBsZS5lZHUvY3JlZGVudGlhbHMvMzczMiIsInR5cGUiOlsiVmVyaWZpYWJsZUNyZWRlbnRpYWwiXSwiaXNzdWVyIjp7ImlkIjoiZGlkOmtleTp6Nk1rb2tyc1ZvOERiR0Rzbk1Bam5vSGhKb3RNYkRaaUhmdnhNNGo2NWQ4cHJYVXIifSwiaXNzdWFuY2VEYXRlIjoiMjAxMC0wMS0wMVQxOToyMzoyNFoiLCJjcmVkZW50aWFsU3ViamVjdCI6eyJpZCI6ImRpZDpleGFtcGxlOmViZmViMWY3MTJlYmM2ZjFjMjc2ZTEyZWMyMSJ9LCJwcm9vZiI6eyJ0eXBlIjoiSnNvbldlYlNpZ25hdHVyZTIwMjAiLCJjcmVhdGVkIjoiMjAxMC0wMS0wMVQxOToyMzoyNFoiLCJ2ZXJpZmljYXRpb25NZXRob2QiOiJkaWQ6a2V5Ono2TWtva3JzVm84RGJHRHNuTUFqbm9IaEpvdE1iRFppSGZ2eE00ajY1ZDhwclhVciN6Nk1rb2tyc1ZvOERiR0Rzbk1Bam5vSGhKb3RNYkRaaUhmdnhNNGo2NWQ4cHJYVXIiLCJwcm9vZlB1cnBvc2UiOiJhc3NlcnRpb25NZXRob2QiLCJqd3MiOiJleUpoYkdjaU9pSkZaRVJUUVNJc0ltSTJOQ0k2Wm1Gc2MyVXNJbU55YVhRaU9sc2lZalkwSWwxOS4ua183dDZoNUlHU1dGQXFJbHFydTN6eVowRkRQUUdvODhwOWpEZUtDMXl3OG94ZDd4ajZCNzB0Wk5TYXNwV2tNeVdiWEZtWjV5Q084ZGxaWjlfa0tiQVEifX0sImp0aSI6Imh0dHA6Ly9leGFtcGxlLmVkdS9jcmVkZW50aWFscy8zNzMyIiwibmJmIjoxMjYyMzczODA0fQ.ZXlKaGJHY2lPaUpGWkVSVFFTSXNJbUkyTkNJNlptRnNjMlVzSW1OeWFYUWlPbHNpWWpZMElsMTkuLkVHUEtGQzcwUk54RmUwOFAtUnFYY2tTVGpXV0FXa3dmRHlVNndPSW1iVTR3TUYyQnpaNGxxcjN2R25rdU5qSjF3N2FVa2lTTDltSWlwR2pseXpucEJ3"
+            >this JWT</a
+          >
+          encodes a
+          <a data-cite="VC-DATA-MODEL#credentials">Verifiable Credential</a>,
+          the input to the signature and verification algorithms is:
+        </p>
+        <pre class="example" title="JWS Signature Payload">
+          "base64url(JSON.stringify(header)).base64url(JSON.stringify(payload))"
+      </pre
+        >
+        <pre class="example" title="Decoded header">
+        {
+            "alg": "EdDSA",
+            "kid": "did:key:z6MkokrsVo8DbGDsnMAjnoHhJotMbDZiHfvxM4j65d8prXUr#z6MkokrsVo8DbGDsnMAjnoHhJotMbDZiHfvxM4j65d8prXUr"
+        }
+        </pre>
+        <pre class="example" title="Decoded payload">
+        {
+            "iss": "did:key:z6MkokrsVo8DbGDsnMAjnoHhJotMbDZiHfvxM4j65d8prXUr",
+            "sub": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+            "vc": {
+              "@context": [
+                "https://www.w3.org/2018/credentials/v1",
+                "https://w3id.org/security/suites/jws-2020/v1"
+              ],
+              "id": "http://example.edu/credentials/3732",
+              "type": [
+                "VerifiableCredential"
+              ],
+              "issuer": {
+                "id": "did:key:z6MkokrsVo8DbGDsnMAjnoHhJotMbDZiHfvxM4j65d8prXUr"
+              },
+              "issuanceDate": "2010-01-01T19:23:24Z",
+              "credentialSubject": {
+                "id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+              },
+              "proof": {
+                "type": "JsonWebSignature2020",
+                "created": "2010-01-01T19:23:24Z",
+                "verificationMethod": "did:key:z6MkokrsVo8DbGDsnMAjnoHhJotMbDZiHfvxM4j65d8prXUr#z6MkokrsVo8DbGDsnMAjnoHhJotMbDZiHfvxM4j65d8prXUr",
+                "proofPurpose": "assertionMethod",
+                "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..k_7t6h5IGSWFAqIlqru3zyZ0FDPQGo88p9jDeKC1yw8oxd7xj6B70tZNSaspWkMyWbXFmZ5yCO8dlZZ9_kKbAQ"
+              }
+            },
+            "jti": "http://example.edu/credentials/3732",
+            "nbf": 1262373804
+          }
+      </pre
+        >
+
+        <p>
+          In the case of JSON-LD Linked Data Proofs, the input to the signature
+          is typically calculated like this:
+        </p>
+        <pre class="example">
+        async canonize(
+            input,
+            { documentLoader, expansionMap, skipExpansion }
+          ) {
+            return jsonld.canonize(input, {
+              algorithm: 'URDNA2015',
+              format: 'application/n-quads',
+              documentLoader,
+              expansionMap,
+              skipExpansion,
+              useNative: this.useNativeCanonize,
+            });
+          }
+        
+        async canonizeProof(proof, { documentLoader, expansionMap }) {
+        // `jws` must not be included in the proof
+        proof = { ...proof };
+        delete proof.jws;
+        return this.canonize(proof, {
+            documentLoader,
+            expansionMap,
+            skipExpansion: false,
+        });
+        }
+        
+        async createVerifyData({
+            document,
+            proof,
+            documentLoader,
+            expansionMap,
+          }) {
+            const c14nProofOptions = await canonizeProof(proof, {
+              documentLoader,
+              expansionMap,
+            });
+            const c14nDocument = await canonize(document, {
+              documentLoader,
+              expansionMap,
+            });
+            return Buffer.concat([
+              await sha256(c14nProofOptions),
+              await sha256(c14nDocument),
+            ]);
+          }
+      </pre
+        >
+
+        <p>
+          While the JSON-LD approach is more complex, it performs the same
+          function as the base64url and string encoding used by JOSE.
+        </p>
+
+        <p>
+          At the end of these "payload preparation" steps, a digital signature
+          <code>sign</code> or <code>verify</code> operation is used.
+        </p>
+      </section>
+
+      <section>
+        <h3>Problem Statement</h3>
+
+        <p>Tampering with a payload breaks an associated signature.</p>
+
+        <p>
+          This requires a <a data-cite="VC-DATA-MODEL#dfn-holders">holder</a> to
+          return to the <a data-cite="VC-DATA-MODEL#dfn-issuers">issuer</a> for
+          a new
+          <a data-cite="VC-DATA-MODEL#credentials">verifiable credential</a>
+          when attempting to reveal a subset of the claims the
+          <a data-cite="VC-DATA-MODEL#dfn-issuers">issuer</a> has attested to in
+          original
+          <a data-cite="VC-DATA-MODEL#credentials">verifiable credential</a>.
+        </p>
+
+        <p>
+          Requiring a <a data-cite="VC-DATA-MODEL#dfn-holders">Holder</a> to
+          interact with the original
+          <a data-cite="VC-DATA-MODEL#dfn-issuers">issuer</a> harms privacy and
+          can be expensive in time and bandwith or impossible in offline
+          scenarios.
+        </p>
+
+        <p class="note">
+          How can a <a data-cite="VC-DATA-MODEL#dfn-holders">holder</a> reveal
+          some subset of
+          <a data-cite="VC-DATA-MODEL#dfn-issuers">issuer</a> attested claims to
+          a <a data-cite="VC-DATA-MODEL#dfn-verifier">verifier</a>, without
+          contacting the <a data-cite="VC-DATA-MODEL#dfn-issuers">issuer</a> or
+          asking the <a data-cite="VC-DATA-MODEL#dfn-verifier">verifier</a> to
+          contact the <a data-cite="VC-DATA-MODEL#dfn-issuers">issuer</a>?
+          Solutions to this problem are often referred to as
+          <a href="VC-DATA-MODE#zero-knowledge-proofs">Selective Disclosure</a>
+        </p>
+      </section>
+
+      <section>
+        <h3>Multi Message Proofs</h3>
+
+        <p>
+          A multi message proof provides cryptographic tamper protection and
+          authentication capabilities for a set of messages.
+        </p>
+
+        <p>
+          Because the <code>payload</code> of the proof is broken up before the
+          <code>sign</code> and <code>verify</code> operations, the
+          <a data-cite="VC-DATA-MODEL#dfn-holders">holder</a> can disclose parts
+          of the `payload` and parts of the `proof` without breaking the
+          cryptographic assurances.
+        </p>
+
+        <p>There are a few examples of this approach under developement:</p>
+        <ul>
+          <li>
+           [[LDP-BBS2020]]
+          </li>
+
+          <li>
+            <a
+              href="https://github.com/decentralized-identity/crypto-wg/blob/main/work_items/json_web_proof.md"
+              >Json Web Proof</a
+            >
+          </li>
+        </ul>
+
+        <p>
+          A multi message proof that is applied to an object will require some
+          stable transformations between <code>messages</code> and
+          <code>object</code>. See the section <a href="#normalization"></a>.
+        </p>
+      </section>
+    </section>
+
+    <section class="informative">
+      <h2>Cryptographic Toolkit</h2>
+
+      <p>
+        This suite proposes a solution for selective disclosure of issuer
+        attested claims (<a data-cite="VC-DATA-MODEL#credentials"
+          >verifiable credentials</a
+        >).
+      </p>
+
+      <p>
+        Unlike previous solutions such as
+        <a
+          href="VC-DATA-MODEL#example-24-a-verifiable-credential-that-supports-cl-signatures"
+          >CL Signatures</a
+        >
+        or
+        <a href="https://w3id.org/security/suites/bls12381-2020"
+          >BBS+ Signatures 2020</a
+        >, this approach does not rely on
+        <a href="VC-DATA-MODE#zero-knowledge-proofs">Zero Knowledge Proofs</a>,
+        instead it relies on
+        <a href="https://computersciencewiki.org/index.php/Merkle_proof"
+          >Merkle Proofs</a
+        >.
+      </p>
+
+      <section>
+        <h3>Merkle Proofs</h3>
+        <p>
+          A key advantage of using merkle proofs is proving set membership by
+          only relying on cryptographic hash functions.
+        </p>
+
+        <p class="advisement">
+          Because a verifier will learn some information about undislosed set
+          members when verifying a proof for disclosed ones, this solution does
+          leak some information. The information a verifier learns is the path
+          from a leaf to a merkle root, which proves a member exists in the set,
+          but this path is built from hashes of members of the set the prover
+          may not be dislosing.
+        </p>
+
+        <p>
+          A robust summary of merkle proofs is beyond the scope of this
+          specification. The proof of concept we build relies on
+          <a href="https://github.com/settlemint/merkle-tools"
+            >this implementation</a
+          >. The diagram below is from the wikipedia page on
+          <a href="https://en.wikipedia.org/wiki/Merkle_tree">merkle trees</a>.
+        </p>
+        <pre class="example" title="A merkle tree">
+          <img
+            style="width: 100%; height: 512px; object-fit: cover;"
+            alt="diagram of merkle tree"
+            src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/95/Hash_Tree.svg/1920px-Hash_Tree.svg.png"
+          />
+        </pre>
+      </section>
+
+      <section>
+        <h3>Json Web Signatures</h3>
+        <p>
+          The most popular solution to encoding digital signatures that rely on
+          standard cryptography in JSON is [[RFC7515]].
+        </p>
+        <p>
+          A robust summary of
+          <a href="https://en.wikipedia.org/wiki/JSON_Web_Signature"
+            >Json Web Signatures</a
+          >
+          is beyond the scope of this specification.
+        </p>
+        <p>
+          By using a standard digital signature approach to sign the
+          <code>merkle root</code>, a holder can then disclose
+          <code>messages</code> and <code>proofs</code>, which can be verified
+          as originating from the issuer who produced the signature using their
+          private key.
+        </p>
+
+        <p class="note" title="No need to generate new keys">
+          An advantage of building selective disclosure proofs on top of JWS is
+          that keys already in use for single message proofs can be used with
+          multi message selective dislosure proofs.
+        </p>
+
+        <p class="note" title="Advantage of leverage existing tooling">
+          [[RFC7515]] has been implemented in many languages. JWS and JWT are
+          used as the foundation of most modern identity assurance systems.
+        </p>
+      </section>
+
+      <section>
+        <h3>Compression</h3>
+        <p>
+          One of the disadvantages of merkle proofs is their size.
+        </p>
+        <p>
+          As you can see in the
+          <a href="#example-5-a-merkle-tree">merkle tree diagram</a>, the size
+          of a single set membership proof is O(log n). Depending on the size of
+          the associated hashes, this can make sparse disclosures of set members
+          (revealing all but a few members) very expensive in proof size.
+        </p>
+        <p>
+          Luckily each membership proof share common nodes in the tree, allowing
+          for compression algorithms to provide significant advantage when
+          disclosing most of the members of a set.
+        </p>
+        <p>
+          In our proof of concept we use
+          <a href="https://github.com/nodeca/pako"
+            >this compression implementation</a
+          >, which is essentially the same as gzip.
+        </p>
+
+        <p class="advisement">
+          Compressed encoding of merkle proofs is an area where better standards
+          are needed. The solution we have used is subject to BREAKING CHANGES.
+        </p>
+      </section>
+    </section>
+
+    <section class="informative">
+      <h2>Proof Suite</h2>
+
+      <p>
+        This suite specification describes an approach to selective dislosure
+        proofs that is based on the original [[LD-PROOFS]] specification.
+      </p>
+
+      <p class="advisement">
+        We are working with the community to develop this same proof technique
+        for use without [[LD-PROOFS]] at the
+        <a href="https://identity.foundation/working-groups/crypto.html"
+          >DIF Applied Cryptography Working Group</a
+        >. There is currently no registered way to encode multi message proofs in JOSE, 
+        but we are working with the community to remedy this.
+      </p>
+
+      <p>
+        There are 2 unsupported features which we require to enable multi
+        message disclosure proofs in JOSE.
+
+        <ul>
+          <li>Standard normalization algorithms for converting between objects and messages.</li>
+          <li>Standard proof encodings for multi message proofs, which allow a holder to derive new proofs.</li>
+        </ul>
+      </p>
+
+      <p>
+        JSON-LD based proofs already support these requirements as was first demonstrated in 
+        [[LDP-BBS2020]]. This suite takes a more generic approach to the problem 
+      in order to support normalization that operate on JSON (which might or might not be JSON-LD).
+      </p>
+
+      <section>
+        <h3>Normalization</h3>
+
+        <p>In order to support signing and verifying of objects where object members are dislosed or ommitted, 
+          a bi-directional losseless message conversion process is required.</p>
+
+          <p> In our proof of concept we name two functions:</p>
+
+          <dl>
+            <dt>objectToMessage</dt><dd>Converts a JSON object to a set of string messages.</dd>
+            <dt>messagesToObject</dt><dd>Converts a set of string messages to a JSON object.</dd>
+          </dl>
+
+          <p class="advisement">It is important that these processes be stable, 
+            such that chaining them together does not result in an object 
+            that is different than the input.</p>
+
+        <section>
+          <h4>JSON Pointer</h4>
+
+          <p>[[RFC6901]] defines operations over JSON objects, that are sufficient for use with this suite.</p>
+
+          <p>Here is some TypeScript codes that implements our required functions:</p>
+
+          <pre class="example" title="JSON Pointer normalization to message set">
+import pointer from 'json-pointer';
+
+const objectToMessages = (obj: any) => {
+  const dict = pointer.dict(obj);
+  const messages = Object.keys(dict).map(key => {
+    return `{"${key}": "${dict[key]}"}`;
+  });
+  return messages;
+};
+
+const messagesToObject = (messages: string[]) => {
+  const obj = {};
+  messages
+    .map(m => {
+      return JSON.parse(m);
+    })
+    .forEach(m => {
+      const [key] = Object.keys(m);
+      const value = m[key];
+      pointer.set(obj, key, value);
+    });
+  return obj;
+};
+
+export { objectToMessages, messagesToObject };
+          </pre>
+        </section>
+
+        <section>
+          <h4>URDNA 2015</h4>
+
+          <p>[[RDF-DATASET-NORMALIZATION]] defines operations over JSON-LD objects, that are sufficient for use with this suite.</p>
+
+          <p class="advisement">
+            This normalization approach is different from [[LD-PROOFS]] and [[LDP-BBS2020]]. 
+            The reason for the diffence is to address a common way to encode object payloads as messages, 
+            that is not bound to RDF, but remains compatible with it.
+          </p>
+          <p>Here is some TypeScript codes that implements our required functions:</p>
+
+          <pre class="example" title="URDNA2015 normalization to message set">
+import jsonld from 'jsonld';
+
+const expansionMap = (info: any) => {
+  if (info.unmappedProperty) {
+    throw new Error('Undefined term: ' + info.unmappedProperty);
+  }
+};
+
+const getMessages = async (obj: any, documentLoader: any) => {
+  return (
+    await jsonld.canonize(obj, {
+      algorithm: 'URDNA2015',
+      format: 'application/n-quads',
+      documentLoader,
+      expansionMap,
+    })
+  )
+    .split('\n')
+    .filter((_: any) => _.length > 0)
+    .map((element: any) => {
+      if (element.includes('<urn:bnid:')) {
+        return element;
+      }
+      const newElement = element.replace(/(_:c14n[0-9]+)/g, `<urn:bnid:$1>`);
+      return newElement;
+    });
+};
+
+const getObject = async (
+  messages: string[],
+  context: any,
+  documentLoader: any
+) => {
+  const obj1 = await jsonld.fromRDF(messages.join('\n'), {
+    format: 'application/n-quads',
+  });
+  const obj2 = await jsonld.compact(obj1, context, { documentLoader });
+  const obj3 = await jsonld.frame(
+    obj2,
+    { '@context': context, '@embed': '@always', type: {} },
+    { documentLoader }
+  );
+  return obj3;
+};
+
+const objectToMessages = async (obj: any, { documentLoader }: any) => {
+  const { proof, ...document } = obj;
+  const documentMessages = await getMessages(document, documentLoader);
+  const proofMessages = await getMessages(
+    {
+      '@context': document['@context'],
+      ...proof,
+      '@id': 'urn:merkle-dislosure-proof:ephemeral-blank-node-id',
+    },
+    documentLoader
+  );
+
+  return [...documentMessages, ...proofMessages];
+};
+
+const messagesToObject = async (
+  messages: string[],
+  { context, documentLoader }: any
+) => {
+  const proofMessages = messages.filter((m: string) => {
+    return m.startsWith('<urn:merkle-dislosure-proof:ephemeral-blank-node-id>');
+  });
+  const documentMessages = messages.filter((m: string) => {
+    return !m.startsWith(
+      '<urn:merkle-dislosure-proof:ephemeral-blank-node-id>'
+    );
+  });
+  const proof = await getObject(proofMessages, context, documentLoader);
+  const document = await getObject(documentMessages, context, documentLoader);
+
+  const combined = {
+    ...document,
+    proof,
+  };
+  delete combined.proof['@context'];
+  delete combined.proof['@id'];
+  delete combined.proof.id;
+
+  return combined;
+};
+
+export { objectToMessages, messagesToObject };
+
+          </pre>
+        </section>
+
+      </section>
+
+      <section>
+        <h3>Membership Proofs</h3>
+
+        <p>In our proof of concept with use the sha256 hash algorithm and a binary encoding of merkle proofs.</p>
+
+        <p class="advisement">Standard encodings of merkle proofs is an area for future work.</p>
+
+        <p>Here is some TypeScript code describing the proof construction process:</p>
+
+        <pre class="example">
+import crypto from 'crypto';
+import pako from 'pako';
+import MerkleTools from '@settlemint/merkle-tools';
+
+const sha256 = (data: any) => {
+  const v = crypto.createHash('sha256').update(data, 'utf8');
+  return v.digest('hex');
+};
+
+const directionToBin: any = {
+  left: '00',
+  right: '01',
+};
+
+const binToDirection: any = {
+  '00': 'left',
+  '01': 'right',
+};
+
+function sliceIntoChunks(arr: Buffer, chunkSize: number) {
+  const res = [];
+  for (let i = 0; i < arr.length; i += chunkSize) {
+    const chunk = arr.slice(i, i + chunkSize);
+    res.push(chunk);
+  }
+  return res;
+}
+
+// compression to eliminate duplicate leaves from proofs
+const compressProofs = (proofs: any[]) => {
+  const encodedProofs = proofs
+    .map(({ proof }) => {
+      return Buffer.concat(
+        proof.map((v: any) => {
+          const [direction] = Object.keys(v);
+          const dir = Buffer.from(directionToBin[direction], 'hex');
+          const value = Buffer.from(v[direction], 'hex');
+          const binary = Buffer.concat([dir, value]);
+          return binary;
+        })
+      );
+    })
+    .map(v => {
+      return v.toString('base64');
+    });
+
+  return Buffer.from(
+    pako.deflate(Buffer.from(JSON.stringify(encodedProofs)))
+  ).toString('base64');
+};
+
+const expandProofs = (proofs: string) => {
+  const encodedProofs = JSON.parse(
+    Buffer.from(
+      pako.inflate(Uint8Array.from(Buffer.from(proofs, 'base64')))
+    ).toString()
+  );
+  return encodedProofs.map((p: any) => {
+    const parts = sliceIntoChunks(Buffer.from(p, 'base64'), 33);
+    const proof = [];
+    for (let i = 0; i < parts.length; i++) {
+      const direction = binToDirection[`0${parts[i][0]}`];
+      const value = parts[i].slice(1).toString('hex');
+      proof.push({
+        [direction]: value,
+      });
+    }
+    return { proof };
+  });
+};
+
+const getProofs = (messages: string[]) => {
+  const merkleTools = new MerkleTools();
+  const leaves = messages.map(sha256);
+  merkleTools.addLeaves(leaves);
+  merkleTools.makeTree();
+  const proofs = leaves.map((_v, i) => {
+    return { proof: merkleTools.getProof(i) };
+  });
+  const merkleRoot = merkleTools.getMerkleRoot();
+  merkleTools.resetTree();
+
+  if (!merkleRoot) {
+    throw new Error('could not get merkleRoot.');
+  }
+
+  return { root: merkleRoot.toString('hex'), proofs: compressProofs(proofs) };
+};
+
+const deriveProofs = (discloseIndexes: number[], proofs: string) => {
+  const encodedProofs = JSON.parse(
+    Buffer.from(
+      pako.inflate(Uint8Array.from(Buffer.from(proofs, 'base64')))
+    ).toString()
+  );
+  const disclosedProofs = encodedProofs.filter((_p: any, i: any) => {
+    return discloseIndexes.includes(i);
+  });
+
+  return Buffer.from(
+    pako.deflate(Buffer.from(JSON.stringify(disclosedProofs)))
+  ).toString('base64');
+};
+
+const verifyProofs = (messages: string[], proofs: string, root: string) => {
+  const merkleTools = new MerkleTools();
+  const expandedProofs = expandProofs(proofs);
+
+  if (expandedProofs.length !== messages.length) {
+    throw new Error('Number of proofs does not match number of messages');
+  }
+
+  const validations = messages.map((m, i) => {
+    if (!expandedProofs[i]) {
+      console.error('No proof for message: ' + m);
+      console.error(JSON.stringify(messages, null, 2));
+      console.error(JSON.stringify(expandedProofs, null, 2));
+    }
+    return merkleTools.validateProof(expandedProofs[i].proof, sha256(m), root);
+  });
+
+  return validations.every((v, i) => {
+    if (!v) {
+      console.log('failed to verify: ' + messages[i]);
+    }
+    return v;
+  });
+};
+
+export { getProofs, deriveProofs, verifyProofs };
+          
+</pre>
+
+      </section>
+
+      <section>
+        <h3>Sign and Verify</h3>
+        <p>Unlike traditional single message proof schemes such as compact JWTs, 
+          we are only signing the <code>merkle root</code>. 
+          This allows a <a data-cite="VC-DATA-MODEL#dfn-holders">Holder</a> to 
+          adjust both <code>messages</code> and <code>proofs</code> to selective disclose object members.
+        </p>
+
+        <p class="advisement">
+          Because <code>messages</code> and <code>proofs</code> are not signed or verified, 
+          it is critical that the <code>merkle root signature</code> be verified first, 
+          before verifying <code>merkle proofs</code> for the individual messages.
+        </p>
+
+      </section>
+
+      <section>
+        <h3>Encoding</h3>
+
+        <p>As mentioned in <a href="#compression"></a>, merkle proofs can be large, 
+          especially when many proofs must be provided when only a single message is 
+          withheld by a <a data-cite="VC-DATA-MODEL#dfn-holders">Holder</a>.
+        </p>
+        <p>In order to address this challenge, 
+          we rely on a proof representation that makes use of binary compression:</p>
+<pre class="example">
+{
+  "type": "MerkleDisclosureProof2021",
+  "created": "2021-08-22T19:36:43Z",
+  "verificationMethod": "did:example:123#key-0",
+  "proofPurpose": "assertionMethod",
+  "normalization": "jsonPointer",
+  "proofs": "eJzNzjeSq0gAANC7TNpbBQiEIGy8Ny0at7UBIIGEl4Q//f97hAmmauKXvH+/YPwMhwSEJabAxAOLpLiw7pLXZKRKfowbyt2zV/jmSpc9DJ91XMyE5YUIKOvzokey0gaHejnyOJh71jFIDYhC240BvOfb61CsWmw8gtY78UkSNl2S9+gs3T5wsU/LbI3eqFLNBMur8rFfp2hVz+URAUlib5DUlh6eEyLvEvzQvRIvF3wvH1//fEFFK5Vdoje3HsKamlSB7vmLxIrNwptqX3t1nbJP9zgYEv+WMoqf3JOoQPKWrQxbR5dRO1XJt8MYsm1geNGxIl90bo4kQ2egs0s/WznKjBDHQPP147o/QsBt8uJdG1KuqCy+KKNx/smyMwbyKq7c+b7onLJ4g6VxEmeLL25mfCU69vySRY31ljD1W8oomw7pgx0T1qVcG+2x2h9AH/6HtIgXBqwdeZWPPEzgDualrI39mh7Xtzn1804NEpEwN30uUj4XIs4vZUzm1uJVDdRIfhnda9WxBIs30YDZ4zw3nRwAj+KV0/wJr0WuXZLYb75bFmPu/r7xHUcFaEBStKWmJaBMDCJ9OyWYv5ZtrWY2cHT2t5Tv72UJHST54WiZGhd2GU4B9eJFhPiXbQCmkSbNShxPCaCyv2GGWdsPkBNhuhDyzY8Dl5szLzFPwFDcrHBEA8iz8pNlm9r7jI/bIqFP4f0ZRe6UxtG7CqUK1ZVDmew90f8KYzi/pRzngzCh4ipaZtcIDxK8qqQZiHTpk9YVW7/ko/qq3uQVVbA4K6XdiDMWtU0UykEYH52jDEVqFC22SaBKBAyqV+8UKoRvBaoNhXYfyeWiWh7ZEMzEzNQ0xS65T2GqOUASdelo/m8IpcIn161C2r1CmUrpY5Q2KevNsqKxnLZ+Hqrv6pmejuFPNgrn1hAHXcCpS6Y+sdhPOr54fwVEsLzX7ByWMM0raSmdDZq8LFVnJiJD8GRqnd48jXXalVDbnH+ceukerik66TxY1+82TG5Y7Xly2+es7xbCdnbZ6/aASUzbptBsO3PoppuLKNV+rPHfHzccgQI=",
+  "jws": "eyJhbGciOiJFZERTQSJ9.ImkrMUVBbU9mMDJUM2JwdHdTcW5DNG1sNlc5TGNmYUU1cGVSY3JLbHdvUnc9Ig.ZXlKaGJHY2lPaUpGWkVSVFFTSXNJbUkyTkNJNlptRnNjMlVzSW1OeWFYUWlPbHNpWWpZMElsMTkuLmpEUFJMbW9taVJmc1kwX1hFOFdwVVNTZXdOeEUwRHI4LVlxNXBOeGdoZUJmVnhORlQ3aFZlMnBsU3NsT05PLXMwUzlLcGpTcXhqM2I2alowdDFqSERR"
+}          
+</pre>
+      </section>
+
+      <section>
+        <h3>Deriving</h3>
+        <p>In order to derive a new 
+          <a data-cite="VC-DATA-MODEL#credentials">Verifiable Credential</a> 
+          which discloses a subset of the original, 
+          the holder must filter the messages associated with the original object, 
+          and the proofs associated with those messages.
+        </p>
+
+        <p>Here is a TypeScript example:</p>
+
+        <pre class="example">
+const suite = new MerkleDisclosureProof2021();
+const derivationResult = await suite.deriveProof({
+  inputDocumentWithProof: { ...originalDocumentWithProof },
+  outputDocument: {
+    '@context': [
+      'https://www.w3.org/2018/credentials/v1',
+      'https://w3id.org/security/suites/merkle-jws-2021/v1',
+      {
+        alsoKnownAs: 'https://www.w3.org/ns/activitystreams#alsoKnownAs',
+        // nickName: 'https://www.w3.org/ns/activitystreams#nickName',
+      },
+    ],
+    id: 'http://example.edu/credentials/3732',
+    type: ['VerifiableCredential'],
+    issuer: 'https://example.edu/issuers/14',
+    issuanceDate: '2010-01-01T19:23:24Z',
+    credentialSubject: {
+      alsoKnownAs: 'did:example:ebfeb1f712ebc6f1c276e12ec21',
+      //   nickName: 'Bob',
+    },
+  },
+  documentLoader,
+});
+const { document, proof } = derivationResult;
+        </pre>
+
+
+        <p class="note">
+          Unlike [[LDP-BBS2020]], our proof of concept does not rely on [[JSON-LD-FRAMING]]. 
+          This is due to also not relying exclusively on [[RDF-DATASET-NORMALIZATION]]. 
+          Instead we compute the <code>messages</code> and <code>proofs</code> 
+          by taking the set difference of the <a href="#normalization"></a> of the original 
+          and derived document objects. 
+          This approach works with any stable normalization algorithm, and is the reason for the 
+          difference in our normalization process compared to [[LDP-BBS2020]].
+        </p>
+        </section>
+    </section>
+
+    <section class="informative">
+      <h2>Use Cases</h2>
+
+      <p class="advisement">These uses cases are hypothetical.</p>
+
+      <section>
+        <h3>Supply chain traceability</h3>
+        <p class="example"> The GS1 Digital Link <code>https://id.gs1.org/01/9506000134352</code> is also known as 
+          <a href="https://dalgiardino.com/risotto-rice-with-mushrooms/">
+            Dal Giardino Risotto Rice with Mushrooms 411g</a>.
+        </p>
+
+        <p>Perhapse not all manufacturing details are necessary to disclose until a recall is issued, 
+          at which point sensitive product and supply chain details (costs, locations, times) 
+          can be disclosed from associated original credentials.
+        </p>
+
+        <p>During an investigation, supply chain participants might be compelled to fully disclose
+          credentials to an auditor or trusted third party.</p>
+
+      </section>  
+
+      <section>
+        <h3>Disclosing known aliases</h3>
+        <p>
+          Sometimes an authority or public registry maintainer may know that a single entity 
+          is known as multiple pseudonmous identifiers. For example:
+        </p>
+
+        <p class="example"> The drivers license <code>Q6780 22812 41253</code> might be also known as 
+          <code>Pearline Abshire</code>. During an investigation, her legal councel might want to be 
+          able to prove that she used to be known as <code>Katarina Kozey</code> with drivers 
+          license number <code>9375599</code> when she worked as an informant on narcotics activity 
+          in Alaska before being relocated under witness protection program.
+        </p>
+
+      </section>  
+
+      <section>
+        <h3>Minimizing verifier liability </h3>
+
+        <p class="issue"> 
+          Data processors should not collect sensitive information they do not need.
+        </p>
+      </section>
+
+      <section>
+        <h3>Protecting subject privacy </h3>
+
+        <p class="issue"> 
+          Data subjects should not need to expose sensitive information they do not need.
+        </p>
+      </section>
+
+
+     
+    </section>
+
+    <section>
+      <h2>Security Considerations</h2>
+      <p>
+The following section describes security considerations that developers
+implementing this specification should be aware of in order to create secure
+software.
+      </p>
+
+<div class="issue">TODO: We need to add a complete list of security
+considerations.</div>
+
+<p class="issue">
+  Need to address <a href="https://en.wikipedia.org/wiki/Merkle_tree#Second_preimage_attack">second pre-image attacks</a>.
+</p>
+
+<p class="issue">
+  Need to address <a href="https://github.com/nazar-pc/merkle-tree-binary">unbalanced merkle tree attacks </a>.
+</p>
+
+    </section>
+    <section id="conformance"></section>
+  </body>
+</html>

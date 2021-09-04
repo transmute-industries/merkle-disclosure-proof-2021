@@ -1,0 +1,51 @@
+{
+  "name": "@transmute/merkle-disclosure-proof-2021",
+  "author": "Orie Steele",
+  "module": "dist/merkle-disclosure-proof-2021.esm.js",
+  "description": "Merkle based Selective Dislosure Proofs with JSON Web Signatures",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "main": "dist/index.js",
+  "typings": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/transmute-industries/verifiable-data.git",
+    "directory": "packages/merkle-disclosure-proof-2021"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "engines": {
+    "node": ">=10"
+  },
+  "scripts": {
+    "start": "tsdx watch",
+    "build": "tsdx build",
+    "test": "tsdx test",
+    "lint": "tsdx lint",
+    "prepare": "tsdx build"
+  },
+  "prettier": {
+    "printWidth": 80,
+    "semi": true,
+    "singleQuote": true,
+    "trailingComma": "es5"
+  },
+  "devDependencies": {
+    "@transmute/credentials-context": "^0.7.0-unstable.7",
+    "@transmute/did-context": "^0.7.0-unstable.7",
+    "@transmute/security-context": "^0.7.0-unstable.7",
+    "tsdx": "^0.14.1",
+    "tslib": "^2.3.1",
+    "typescript": "^3.5.3"
+  },
+  "dependencies": {
+    "@settlemint/merkle-tools": "^1.0.7",
+    "@transmute/json-web-signature": "^0.7.0-unstable.7",
+    "flat": "^5.0.2",
+    "json-pointer": "^0.6.1",
+    "jsonld": "^5.2.0",
+    "pako": "^2.0.4"
+  }
+}
