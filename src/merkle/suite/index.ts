@@ -1,11 +1,10 @@
-import { getProofs, verifyProofs, deriveProofs } from './merkle';
+import { getProofs, verifyProofs, deriveProofs } from '../merkle';
 
 const createProof = async (document: any, options: any) => {
   const { objectToMessages } = options;
   const messages = await objectToMessages(document, options);
-  // console.log(JSON.stringify(messages, null, 2));
 
-  const proof = getProofs(messages);
+  const proof = getProofs(messages, options.rootNonce);
   return {
     type: 'MerkleDisclosureProof2021',
     ...proof,
@@ -37,11 +36,18 @@ const deriveProof = async (
     .filter((m: any) => {
       return m !== undefined;
     });
-  const disclosedProofs = deriveProofs(discloseIndexes, proof.proofs);
+
+  const disclosedProofs = deriveProofs(
+    discloseIndexes,
+    proof.proofs,
+    inputMessages,
+    proof.rootNonce
+  );
   const derivedProof = {
     ...proof,
     proofs: disclosedProofs,
   };
+  delete derivedProof.rootNonce;
   delete outputDocumentFromMessages.proof;
   return { document: outputDocumentFromMessages, proof: derivedProof };
 };

@@ -12,13 +12,16 @@ export class MerkleDisclosureProof2021 {
   protected key?: JsonWebKey;
   protected date?: string;
   protected verificationMethod?: string;
+  private rootNonce?: string;
 
   constructor(options?: {
     key?: JsonWebKey;
     date?: string;
     normalization?: string;
+    rootNonce?: string;
   }) {
     if (options) {
+      this.rootNonce = options.rootNonce;
       const { key, date, normalization } = options;
       if (key && !(key as any).useJwa) {
         throw new Error('Key must support useJwa.');
@@ -76,8 +79,10 @@ export class MerkleDisclosureProof2021 {
     const merkleProof = await merkle.createProof(normalizedDocumentWithProof, {
       documentLoader,
       ...(normalizationOptions as any)[proof.normalization],
+      rootNonce: this.rootNonce,
     });
     proof.proofs = merkleProof.proofs;
+    proof.rootNonce = merkleProof.rootNonce;
 
     // produce compact jws
     const k = await (this.key as any).useJwa({
@@ -111,7 +116,12 @@ export class MerkleDisclosureProof2021 {
     return object;
   }
 
-  async deriveProof(options: any): Promise<{ document: any; proof: any }> {
+  async deriveProof(options: {
+    inputDocumentWithProof: any;
+    outputDocument: any;
+    documentLoader?: any;
+    rootNonce?: string;
+  }): Promise<{ document: any; proof: any }> {
     const { inputDocumentWithProof, outputDocument } = options;
 
     const { proof, ...inputDocument } = inputDocumentWithProof;
@@ -119,12 +129,16 @@ export class MerkleDisclosureProof2021 {
     const partialProof = { ...proof };
     delete partialProof.proofs;
     delete partialProof.jws;
+    delete partialProof.rootNonce;
 
     const result = await merkle.deriveProof(
       { ...outputDocument, proof: partialProof },
       { ...inputDocument, proof: partialProof },
       proof,
-      { ...options, ...(normalizationOptions as any)[proof.normalization] }
+      {
+        ...options,
+        ...(normalizationOptions as any)[proof.normalization],
+      } as any
     );
 
     return result;
