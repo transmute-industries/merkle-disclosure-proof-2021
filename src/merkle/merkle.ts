@@ -8,7 +8,7 @@ const sha256 = (data: any) => {
   return v.digest('hex');
 };
 
-const LOG_VERBOSE = true;
+const LOG_VERBOSE = false;
 
 const calculateMessageNonce = (
   message: string,

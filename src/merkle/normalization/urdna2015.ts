@@ -1,5 +1,7 @@
 import jsonld from 'jsonld';
 
+const LOG_VERBOSE = false;
+
 const expansionMap = (info: any) => {
   if (info.unmappedProperty) {
     throw new Error('Undefined term: ' + info.unmappedProperty);
@@ -7,14 +9,27 @@ const expansionMap = (info: any) => {
 };
 
 const getMessages = async (obj: any, documentLoader: any) => {
-  return (
-    await jsonld.canonize(obj, {
+  let nquads: string = '';
+
+  if (!documentLoader) {
+    throw new Error(
+      'URDNA2015 requires a documentLoader to normalize objects.'
+    );
+  }
+  try {
+    nquads = await jsonld.canonize(obj, {
       algorithm: 'URDNA2015',
       format: 'application/n-quads',
       documentLoader,
       expansionMap,
-    })
-  )
+    });
+  } catch (e) {
+    if (LOG_VERBOSE) {
+      console.error(e);
+    }
+    throw e;
+  }
+  return nquads
     .split('\n')
     .filter((_: any) => _.length > 0)
     .map((element: any) => {
