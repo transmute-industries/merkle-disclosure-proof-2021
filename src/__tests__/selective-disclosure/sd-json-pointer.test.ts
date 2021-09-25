@@ -2,7 +2,7 @@ import { JsonWebKey, MerkleDisclosureProof2021 } from '../..';
 
 import { keys, documentLoader } from '../../__fixtures__';
 
-describe('MerkleDisclosureProof2021 with Json Pointer', () => {
+describe.skip('MerkleDisclosureProof2021 with Json Pointer', () => {
   let proof: any;
   let derivationResult: any;
   const doc = {

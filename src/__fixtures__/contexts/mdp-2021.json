@@ -37,6 +37,7 @@
         "jws": "https://w3id.org/security#jws",
         "normalization": "https://w3id.org/security#normalization",
         "proofs": "https://w3id.org/security#proofs",
+        "rootNonce": "https://w3id.org/security#rootNonce",
         "nonce": "https://w3id.org/security#nonce",
         "proofPurpose": {
           "@id": "https://w3id.org/security#proofPurpose",

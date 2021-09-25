@@ -7,7 +7,11 @@ import derivedCredential from '../__fixtures__/derived-1.json';
 
 const { objectToMessages, messagesToObject } = naive;
 
-const options = { objectToMessages, messagesToObject };
+const options = {
+  objectToMessages,
+  messagesToObject,
+  rootNonce: 'urn:uuid:d84cd789-4626-488d-834b-ceb075250d50',
+};
 
 it('selective disclosure', async () => {
   const inputDocument = { ...credential };

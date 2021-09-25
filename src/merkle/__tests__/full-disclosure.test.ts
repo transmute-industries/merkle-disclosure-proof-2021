@@ -6,7 +6,11 @@ import { credentials } from '../../__fixtures__';
 
 const { objectToMessages, messagesToObject } = naive;
 
-const options = { objectToMessages, messagesToObject };
+const options = {
+  objectToMessages,
+  messagesToObject,
+  rootNonce: 'urn:uuid:d84cd789-4626-488d-834b-ceb075250d50',
+};
 
 const credential = { ...credentials.credential0 };
 
@@ -14,7 +18,8 @@ import derivedCredential from '../__fixtures__/derived-0.json';
 
 it('full disclosure', async () => {
   const inputDocument = { ...credential };
-  const proof = await createProof(credential, options);
+  const proof = await createProof(inputDocument, options);
+
   const outputDocument = { ...credential };
   const derived = await deriveProof(
     outputDocument,
@@ -22,6 +27,7 @@ it('full disclosure', async () => {
     proof,
     options
   );
+
   const { verified } = await verifyProof(
     derived.document,
     derived.proof,
