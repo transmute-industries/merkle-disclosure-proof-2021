@@ -1,4 +1,4 @@
-import { getProofs, verifyProofs, deriveProofs } from './merkle';
+import { getProofs, verifyProofs, deriveProofs } from '../merkle';
 
 const createProof = async (document: any, options: any) => {
   const { objectToMessages } = options;
@@ -36,10 +36,11 @@ const deriveProof = async (
     .filter((m: any) => {
       return m !== undefined;
     });
+
   const disclosedProofs = deriveProofs(
     discloseIndexes,
     proof.proofs,
-    outputMessages,
+    inputMessages,
     proof.rootNonce
   );
   const derivedProof = {
