@@ -3,7 +3,9 @@ import pointer from 'json-pointer';
 const objectToMessages = (obj: any) => {
   const dict = pointer.dict(obj);
   const messages = Object.keys(dict).map(key => {
-    return `{"${key}": "${dict[key]}"}`;
+    const messageObj: { [k: string]: any } = {};
+    messageObj[key] = dict[key];
+    return JSON.stringify(messageObj);
   });
   return messages;
 };
