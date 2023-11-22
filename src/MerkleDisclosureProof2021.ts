@@ -85,14 +85,14 @@ export class MerkleDisclosureProof2021 {
     proof.rootNonce = merkleProof.rootNonce;
 
     // produce compact jws
-    const k = await (this.key as any).useJwa({
-      detached: false,
-      header: {
-        // we don't need this here, but we will need it when multi message JWS is possible.
-        // kid: this.key.id,
-      },
-    });
-    const signer = k.signer();
+    // const k = await (this.key as any).useJwa({
+    //   detached: true,
+    //   header: {
+    //     // we don't need this here, but we will need it when multi message JWS is possible.
+    //     // kid: this.key.id,
+    //   },
+    // });
+    const signer = this.key.signer();
     const signature = await signer.sign({
       data: Buffer.from(merkleProof.root, 'hex').toString('base64'),
     });
@@ -144,7 +144,9 @@ export class MerkleDisclosureProof2021 {
     return result;
   }
 
-  async verifyProof(options: any): Promise<{ verified: boolean; error?: any }> {
+  async verifyProof(
+    options: any
+  ): Promise<{ verified: boolean; verificationMethod?: any; error?: any }> {
     const { document, proof, documentLoader } = options;
 
     const key = await this.getVerificationMethod({
@@ -175,6 +177,7 @@ export class MerkleDisclosureProof2021 {
       proof: { ...proof },
     };
 
+    delete documentWithProof.proof['@context'];
     delete documentWithProof.proof.proofs;
     delete documentWithProof.proof.jws;
 
@@ -191,7 +194,7 @@ export class MerkleDisclosureProof2021 {
           ...(normalizationOptions as any)[normalization],
         }
       );
-      return isMerkProofValid;
+      return { ...isMerkProofValid, verificationMethod: key };
     } catch (e) {
       // console.warn(e);
       return { verified: false };
@@ -250,13 +253,13 @@ export class MerkleDisclosureProof2021 {
       return framed;
     }
 
-    const key: any = await JsonWebKey.from(framed);
-    return key.useJwa({
-      detached: false,
-      header: {
-        // we don't need this here, but we will need it when multi message JWS is possible.
-        // kid: this.key.id,
-      },
-    });
+    return JsonWebKey.from(framed, { detached: false });
+    // return key.useJwa({
+    //   detached: true,
+    //   header: {
+    //     // we don't need this here, but we will need it when multi message JWS is possible.
+    //     // kid: this.key.id,
+    //   },
+    // });
   }
 }
